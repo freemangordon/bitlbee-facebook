@@ -500,8 +500,14 @@ fb_http_request_send(FbHttpRequest *req)
         str = g_strdup_printf("POST %s HTTP/1.1\r\n%s\r\n%s",
                               priv->purl.file, hdrs, prms);
     } else {
-        str = g_strdup_printf("GET %s?%s HTTP/1.1\r\n%s\r\n",
-                              priv->purl.file, prms, hdrs);
+        size = strlen(prms);
+        if (size) {
+            str = g_strdup_printf("GET %s?%s HTTP/1.1\r\n%s\r\n",
+                                  priv->purl.file, prms, hdrs);
+        } else {
+          str = g_strdup_printf("GET %s HTTP/1.1\r\n%s\r\n",
+                                priv->purl.file, hdrs);
+        }
     }
 
     fb_http_request_debug(req, FALSE, hdrs, prms);
