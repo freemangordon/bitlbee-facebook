@@ -76,6 +76,12 @@ struct _FbApiPrivate
     gchar *machine_id;
     gchar *login_first_factor;
     gchar *twofactor_code;
+    struct
+    {
+      gchar *url;
+      gchar *error_title;
+      gchar *error_message;
+    } verify;
 };
 
 struct _FbApiData
@@ -259,6 +265,9 @@ fb_api_dispose(GObject *obj)
     g_free(priv->machine_id);
     g_free(priv->login_first_factor);
     g_free(priv->twofactor_code);
+    g_free(priv->verify.url);
+    g_free(priv->verify.error_title);
+    g_free(priv->verify.error_message);
 }
 
 static void
@@ -680,6 +689,24 @@ fb_api_class_init(FbApiClass *klass)
                  fb_marshal_VOID__VOID,
                  G_TYPE_NONE,
                  0);
+
+    /**
+     * FbApi::account-verify:
+     * @api: The #FbApi.
+     * @url: The URL to open in browser.
+     *
+     * Emitted when user interaction is required to verify their account on
+     * www.facebook.com (405)
+     */
+
+    g_signal_new("account-verify",
+                 G_TYPE_FROM_CLASS(klass),
+                 G_SIGNAL_ACTION,
+                 0,
+                 NULL, NULL,
+                 fb_marshal_VOID__STRING_STRING_STRING,
+                 G_TYPE_NONE,
+                 3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 }
 
 static void
@@ -748,7 +775,6 @@ fb_api_json_update_from_error_data(FbApi *api, gconstpointer data, gssize size, 
     FbApiPrivate *priv;
     gboolean found_data = FALSE;
     GError *err = NULL;
-    gint64 code;
     gint64 uid;
     JsonNode *root;
     gchar *error_data;
@@ -765,8 +791,8 @@ fb_api_json_update_from_error_data(FbApi *api, gconstpointer data, gssize size, 
         g_clear_error(&err);
         return;
     }
-    // We handle all error stuff for info, not just 406
 
+    // We handle all error stuff for info, not just 406
     error_data = fb_json_node_get_str(root,  "$.error_data", &err);
     if (err != NULL) {
         // No error data. This is ok.
@@ -782,7 +808,6 @@ fb_api_json_update_from_error_data(FbApi *api, gconstpointer data, gssize size, 
         return;
     }
 
-
     // Finally, parse individual datas
     // uid, special case
     uid = fb_json_node_get_int(error_data_root, "$.uid", &err);
@@ -792,25 +817,49 @@ fb_api_json_update_from_error_data(FbApi *api, gconstpointer data, gssize size, 
             found_data = TRUE;
         }
     }
+
     // machine_id
     str = fb_json_node_get_str(error_data_root, "$.machine_id", &err);
     if (err != NULL) { g_clear_error(&err) ; } else {
         if (g_strcmp0(str, priv->machine_id) != 0) {
             g_free(priv->machine_id);
-            priv->machine_id = g_strdup(str);
+            priv->machine_id = str;
             found_data = TRUE;
+        } else {
+            g_free(str);
         }
-        g_free(str);
     }
+
     // login_first_factor
     str = fb_json_node_get_str(error_data_root, "$.login_first_factor", &err);
     if (err != NULL) { g_clear_error(&err) ; } else {
         if (g_strcmp0(str, priv->login_first_factor) != 0) {
             g_free(priv->login_first_factor);
-            priv->login_first_factor = g_strdup(str);
+            priv->login_first_factor = str;
             found_data = TRUE;
+        } else {
+            g_free(str);
         }
-        g_free(str);
+    }
+
+    // account verify url (error 405)
+    str = fb_json_node_get_str(error_data_root, "$.url", &err);
+    if (err != NULL) { g_clear_error(&err) ; } else {
+        if (g_strcmp0(str, priv->verify.url) != 0) {
+            g_free(priv->verify.url);
+            g_free(priv->verify.error_title);
+            g_free(priv->verify.error_message);
+
+            priv->verify.url = str;
+            priv->verify.error_title =
+                fb_json_node_get_str(error_data_root, "$.error_title", NULL);
+            priv->verify.error_message =
+                fb_json_node_get_str(error_data_root, "$.error_message", NULL);
+
+            found_data = TRUE;
+        } else {
+            g_free(str);
+        }
     }
 
     json_node_free(error_data_root);
@@ -823,7 +872,6 @@ fb_api_json_update_from_error_data(FbApi *api, gconstpointer data, gssize size, 
         priv->twofactor_code = NULL;
     }
 }
-
 
 static gboolean
 fb_api_json_chk(FbApi *api, gconstpointer data, gssize size, JsonNode **node)
@@ -889,7 +937,22 @@ fb_api_json_chk(FbApi *api, gconstpointer data, gssize size, JsonNode **node)
     }
 
     if (code == 406) {
+        errc = FB_API_ERROR_AUTH;
         g_signal_emit_by_name(api, "twofactor-code-prompt");
+    }
+
+    if (code == 405 && priv->verify.url) {
+        errc = FB_API_ERROR_AUTH;
+        g_signal_emit_by_name(api, "account-verify",
+                              priv->verify.url,
+                              priv->verify.error_title,
+                              priv->verify.error_message);
+        g_free(priv->verify.url);
+        priv->verify.url = NULL;
+        g_free(priv->verify.error_title);
+        priv->verify.error_title = NULL;
+        g_free(priv->verify.error_message);
+        priv->verify.error_message = NULL;
     }
 
     /* 509 is used for "invalid attachment id" */
@@ -911,6 +974,12 @@ fb_api_json_chk(FbApi *api, gconstpointer data, gssize size, JsonNode **node)
     }
 
     g_object_unref(values);
+
+    /* do not emit error in case of 2fa code is required */
+    if (code == 405 || code == 406) {
+      json_node_free(root);
+      return FALSE;
+    }
 
     for (msg = NULL, i = 0; i < G_N_ELEMENTS(exprs); i++) {
         msg = fb_json_node_get_str(root, exprs[i], NULL);
