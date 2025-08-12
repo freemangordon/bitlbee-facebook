@@ -124,7 +124,7 @@
  *
  * The HTTP User-Agent header.
  */
-#define FB_API_AGENT_BASE "Facebook plugin / BitlBee / " PACKAGE_VERSION
+#define FB_API_AGENT_BASE "Facebook plugin / " PACKAGE " / " PACKAGE_VERSION
 #define FB_API_AGENT FB_API_AGENT_BASE " " FB_ORCA_AGENT
 
 /**
