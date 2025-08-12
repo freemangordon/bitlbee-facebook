@@ -16,7 +16,6 @@
  */
 
 #include <bitlbee.h>
-#include <sha1.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -261,13 +260,7 @@ fb_util_rand_alnum(guint len)
 gchar *
 fb_util_rand_uuid(void)
 {
-    guint8 buf[50];
-    sha1_state_t sha;
-
-    sha1_init(&sha);
-    random_bytes(buf, sizeof buf);
-    sha1_append(&sha, buf, sizeof buf);
-    return sha1_random_uuid(&sha);
+    return g_uuid_string_random();
 }
 
 gboolean
