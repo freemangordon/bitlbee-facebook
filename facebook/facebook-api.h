@@ -619,6 +619,49 @@ struct _FbApiTyping
     FbId uid;
     gboolean state;
 };
+/**
+ * @FB_API_FRIENDSHIP_STATUS_ARE_FRIENDS: You and the contact are friends.
+ * @FB_API_FRIENDSHIP_STATUS_CAN_REQUEST: You can send a friend request.
+ * @FB_API_FRIENDSHIP_STATUS_CANNOT_REQUEST: You cannot send a friend request.
+ * @FB_API_FRIENDSHIP_STATUS_OUTGOING_REQUEST: You have sent a friend request.
+ * @FB_API_FRIENDSHIP_STATUS_INCOMING_REQUEST: They have sent a friend request.
+ * @FB_API_FRIENDSHIP_STATUS_CAN_RECONFIRM: You can re-send a friend request.
+ * @FB_API_FRIENDSHIP_STATUS_NOT_FRIENDS: No friendship or pending requests.
+ * @FB_API_FRIENDSHIP_STATUS_BLOCKED: You blocked them or they blocked you.
+ * @FB_API_FRIENDSHIP_STATUS_DEACTIVATED: The account is deactivated.
+ *
+ * User friendship status
+ */
+typedef enum {
+    FB_API_FRIENDSHIP_STATUS_UNKNOWN,
+    FB_API_FRIENDSHIP_STATUS_ARE_FRIENDS,
+    FB_API_FRIENDSHIP_STATUS_CAN_REQUEST,
+    FB_API_FRIENDSHIP_STATUS_CANNOT_REQUEST,
+    FB_API_FRIENDSHIP_STATUS_OUTGOING_REQUEST,
+    FB_API_FRIENDSHIP_STATUS_INCOMING_REQUEST,
+    FB_API_FRIENDSHIP_STATUS_CAN_RECONFIRM,
+    FB_API_FRIENDSHIP_STATUS_NOT_FRIENDS,
+    FB_API_FRIENDSHIP_STATUS_BLOCKED,
+    FB_API_FRIENDSHIP_STATUS_DEACTIVATED
+} FbApiFriendshipStatus;
+
+/**
+ * @FB_API_SUBSCRIBE_STATUS_CAN_SUBSCRIBE: Can follow without being friends.
+ * @FB_API_SUBSCRIBE_STATUS_IS_SUBSCRIBED: Already following.
+ * @FB_API_SUBSCRIBE_STATUS_CANNOT_SUBSCRIBE: Cannot follow.
+ * @FB_API_SUBSCRIBE_STATUS_SELF: The profile belongs to you.
+ * @FB_API_SUBSCRIBE_STATUS_UNSUBSCRIBED: You have unfollowed them.
+ *
+ * Represents your ability to follow the user’s public posts.
+ */
+typedef enum {
+    FB_API_SUBSCRIBE_STATUS_UNKNOWN,
+    FB_API_SUBSCRIBE_STATUS_CAN_SUBSCRIBE,
+    FB_API_SUBSCRIBE_STATUS_IS_SUBSCRIBED,
+    FB_API_SUBSCRIBE_STATUS_CANNOT_SUBSCRIBE,
+    FB_API_SUBSCRIBE_STATUS_SELF,
+    FB_API_SUBSCRIBE_STATUS_UNSUBSCRIBED
+} FbApiSubscribeStatus;
 
 /**
  * FbApiUser:
@@ -635,6 +678,8 @@ struct _FbApiUser
     gchar *name;
     gchar *icon;
     gchar *csum;
+    FbApiFriendshipStatus fs;
+    FbApiSubscribeStatus ss;
 };
 
 /**

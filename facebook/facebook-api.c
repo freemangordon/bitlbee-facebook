@@ -53,6 +53,8 @@ struct _FbApiPrivate
     FbHttp *http;
     FbMqtt *mqtt;
     GHashTable *data;
+    GHashTable *frienship_status;
+    GHashTable *subscribe_status;
     gboolean retrying;
 
     FbId uid;
@@ -254,6 +256,8 @@ fb_api_dispose(GObject *obj)
     g_object_unref(priv->http);
     g_object_unref(priv->mqtt);
     g_hash_table_destroy(priv->data);
+    g_hash_table_destroy(priv->frienship_status);
+    g_hash_table_destroy(priv->subscribe_status);
     g_queue_free_full(priv->msgs, (GDestroyNotify) fb_api_message_free);
 
     g_free(priv->cid);
@@ -722,6 +726,51 @@ fb_api_init(FbApi *api)
     priv->msgs = g_queue_new();
     priv->data = g_hash_table_new_full(g_direct_hash, g_direct_equal,
                                        NULL, NULL);
+    priv->frienship_status = g_hash_table_new(g_str_hash, g_str_equal);
+    g_hash_table_insert(
+          priv->frienship_status, "ARE_FRIENDS",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_ARE_FRIENDS));
+    g_hash_table_insert(
+          priv->frienship_status, "CAN_REQUEST",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_CAN_REQUEST));
+    g_hash_table_insert(
+          priv->frienship_status, "CANNOT_REQUEST",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_CANNOT_REQUEST));
+    g_hash_table_insert(
+          priv->frienship_status, "OUTGOING_REQUEST",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_OUTGOING_REQUEST));
+    g_hash_table_insert(
+          priv->frienship_status, "INCOMING_REQUEST",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_INCOMING_REQUEST));
+    g_hash_table_insert(
+          priv->frienship_status, "CAN_RECONFIRM",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_CAN_RECONFIRM));
+    g_hash_table_insert(
+          priv->frienship_status, "NOT_FRIENDS",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_NOT_FRIENDS));
+    g_hash_table_insert(
+          priv->frienship_status, "BLOCKED",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_BLOCKED));
+    g_hash_table_insert(
+          priv->frienship_status, "DEACTIVATED",
+          GUINT_TO_POINTER(FB_API_FRIENDSHIP_STATUS_DEACTIVATED));
+
+    priv->subscribe_status = g_hash_table_new(g_str_hash, g_str_equal);
+    g_hash_table_insert(
+          priv->subscribe_status, "CAN_SUBSCRIBE",
+          GUINT_TO_POINTER(FB_API_SUBSCRIBE_STATUS_CAN_SUBSCRIBE));
+    g_hash_table_insert(
+          priv->subscribe_status, "IS_SUBSCRIBED",
+          GUINT_TO_POINTER(FB_API_SUBSCRIBE_STATUS_IS_SUBSCRIBED));
+    g_hash_table_insert(
+          priv->subscribe_status, "CANNOT_SUBSCRIBE",
+          GUINT_TO_POINTER(FB_API_SUBSCRIBE_STATUS_CANNOT_SUBSCRIBE));
+    g_hash_table_insert(
+          priv->subscribe_status, "SELF",
+          GUINT_TO_POINTER(FB_API_SUBSCRIBE_STATUS_SELF));
+    g_hash_table_insert(
+          priv->subscribe_status, "UNSUBSCRIBED",
+          GUINT_TO_POINTER(FB_API_SUBSCRIBE_STATUS_UNSUBSCRIBED));
 }
 
 GQuark
@@ -2852,6 +2901,8 @@ fb_api_cb_contacts_nodes(FbApi *api, JsonNode *root, GSList *users)
     fb_json_values_add(values, FB_JSON_TYPE_BOOL, FALSE,
                        "$.is_on_viewer_contact_list");
     fb_json_values_add(values, FB_JSON_TYPE_STR, FALSE,
+                       "$.represented_profile.subscribe_status");
+    fb_json_values_add(values, FB_JSON_TYPE_STR, FALSE,
                        "$.structured_name.text");
     fb_json_values_add(values, FB_JSON_TYPE_STR, FALSE,
                        "$.hugePictureUrl.uri");
@@ -2881,6 +2932,11 @@ fb_api_cb_contacts_nodes(FbApi *api, JsonNode *root, GSList *users)
 
         user = fb_api_user_dup(NULL, FALSE);
         user->uid = uid;
+        user->fs =
+            GPOINTER_TO_UINT(g_hash_table_lookup(priv->frienship_status, str));
+        str = fb_json_values_next_str(values, NULL);
+        user->ss =
+            GPOINTER_TO_UINT(g_hash_table_lookup(priv->subscribe_status, str));
         user->name = fb_json_values_next_str_dup(values, NULL);
         user->icon = fb_json_values_next_str_dup(values, NULL);
 
@@ -4059,6 +4115,8 @@ fb_api_user_dup(const FbApiUser *user, gboolean deep)
         ret->name = g_strdup(user->name);
         ret->icon = g_strdup(user->icon);
         ret->csum = g_strdup(user->csum);
+        ret->fs = user->fs;
+        ret->ss = user->ss;
     }
 
     return ret;
