@@ -3644,8 +3644,6 @@ fb_api_thread_parse(FbApi *api, FbApiThread *thrd, JsonNode *root,
     values = fb_json_values_new(root);
     fb_json_values_add(values, FB_JSON_TYPE_STR, TRUE,
                        "$.messaging_actor.id");
-    fb_json_values_add(values, FB_JSON_TYPE_STR, TRUE,
-                       "$.messaging_actor.name");
     fb_json_values_set_array(values, TRUE, "$.all_participants.nodes");
 
     while (fb_json_values_update(values, &err)) {
@@ -3654,9 +3652,11 @@ fb_api_thread_parse(FbApi *api, FbApiThread *thrd, JsonNode *root,
         num_users++;
 
         if (uid != priv->uid) {
+            JsonNode *actor = fb_json_node_get(fb_json_values_get_root(values),
+                                               "$.messaging_actor", NULL);
             user = fb_api_user_dup(NULL, FALSE);
             user->uid = uid;
-            user->name = fb_json_values_next_str_dup(values, NULL);
+            fb_api_structured_name_parse(actor, user);
             thrd->users = g_slist_prepend(thrd->users, user);
         } else {
             haself = TRUE;
