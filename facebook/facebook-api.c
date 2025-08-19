@@ -2882,6 +2882,37 @@ fb_api_contact(FbApi *api, FbId uid)
     fb_api_http_query(api, FB_API_QUERY_CONTACT, bldr, fb_api_cb_contact);
 }
 
+static void
+fb_api_structured_name_parse(JsonNode *root, FbApiUser *user)
+{
+  JsonArray *parts;
+
+  user->name = fb_json_node_get_str(root, "$.structured_name.text", NULL);
+
+  parts = fb_json_node_get_arr(root, "$.structured_name.parts", NULL);
+
+  if (parts) {
+    GList *elms = json_array_get_elements(parts);
+
+    for (GList *l = elms; l; l = l->next) {
+      gchar *id = fb_json_node_get_str(l->data, "$.part", NULL);
+
+      if (!g_strcmp0(id, "first")) {
+        user->sn.first.off = fb_json_node_get_int(l->data, "$.offset", NULL);
+        user->sn.first.len = fb_json_node_get_int(l->data, "$.length", NULL);
+      } else if (!g_strcmp0(id, "last")) {
+        user->sn.last.off = fb_json_node_get_int(l->data, "$.offset", NULL);
+        user->sn.last.len = fb_json_node_get_int(l->data, "$.length", NULL);
+      }
+
+      g_free(id);
+    }
+
+    g_list_free(elms);
+    json_array_unref(parts);
+  }
+}
+
 static GSList *
 fb_api_cb_contacts_nodes(FbApi *api, JsonNode *root, GSList *users)
 {
@@ -2902,8 +2933,6 @@ fb_api_cb_contacts_nodes(FbApi *api, JsonNode *root, GSList *users)
                        "$.is_on_viewer_contact_list");
     fb_json_values_add(values, FB_JSON_TYPE_STR, FALSE,
                        "$.represented_profile.subscribe_status");
-    fb_json_values_add(values, FB_JSON_TYPE_STR, FALSE,
-                       "$.structured_name.text");
     fb_json_values_add(values, FB_JSON_TYPE_STR, FALSE,
                        "$.hugePictureUrl.uri");
 
@@ -2937,10 +2966,10 @@ fb_api_cb_contacts_nodes(FbApi *api, JsonNode *root, GSList *users)
         str = fb_json_values_next_str(values, NULL);
         user->ss =
             GPOINTER_TO_UINT(g_hash_table_lookup(priv->subscribe_status, str));
-        user->name = fb_json_values_next_str_dup(values, NULL);
         user->icon = fb_json_values_next_str_dup(values, NULL);
-
         user->csum = fb_api_user_icon_checksum(user->icon);
+
+        fb_api_structured_name_parse(fb_json_values_get_root(values), user);
 
         users = g_slist_prepend(users, user);
 
@@ -4117,6 +4146,7 @@ fb_api_user_dup(const FbApiUser *user, gboolean deep)
         ret->csum = g_strdup(user->csum);
         ret->fs = user->fs;
         ret->ss = user->ss;
+        ret->sn = user->sn;
     }
 
     return ret;

@@ -669,6 +669,9 @@ typedef enum {
  * @name: The name of the user.
  * @icon: The icon URL.
  * @csum: The checksum of @icon.
+ * @fs: Friendship status
+ * @ss: Subscribe status
+ * @sn: Structured name, length and offset of first/last name parts within @name
  *
  * Represents a Facebook user.
  */
@@ -680,6 +683,21 @@ struct _FbApiUser
     gchar *csum;
     FbApiFriendshipStatus fs;
     FbApiSubscribeStatus ss;
+    struct
+    {
+        struct
+        {
+            guint len;
+            guint off;
+        }
+        first;
+        struct
+        {
+            guint len;
+            guint off;
+        }
+        last;
+    } sn;
 };
 
 /**
